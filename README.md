@@ -8,7 +8,7 @@ The package further provides specific methods for endpoints that can not be hand
 - `login()` and `logout()` manage the `session_id` authentication token.
 - `info()` and `database()` _class_ methods access PRO/INFO and PRO/DATABASE endpoints. These endpoints require an API key as an authentication token and do not depend on the standard login mechanism.\
 _(Note that the api_key is solely needed for these endpoints. All other endpoints can be used without the api_key)._
-- `file_upload()`.
+- `file_upload()` and `file_download()`
 
 The Proffix API manages authentication through a `PxSessionId` token transmitted in the HTML header. The token is initially acquired by a html POST request to the PRO/LOGIN endpoint. The proffix_api package embeds the current session ID in the HTML header and obtains a new session ID if none is available or if the current one has expired. A new session ID is acquired through the `login()` method that forwards username, password, database name and necessary modules to the 'PRO/LOGIN' endpoint.
 
@@ -57,12 +57,13 @@ contact = {
     "Land": {"LandNr": "CH"},
     "Anrede": "Mrs.",
     "EMail": "tina.test@example.org"}
-response = proffix.request("POST", "ADR/ADRESSE", payload=contact)
+response = proffix.post("ADR/ADRESSE", json=contact)
 adress_no = re.sub("^.*/", "", response.headers['Location'])
 
 # Look up contact created above
-response = proffix.request("GET", f"ADR/ADRESSE/{adress_no}")
-response.json()["Vorname"]
+response = proffix.get(f"ADR/ADRESSE/{adress_no}",
+                       params={'fields': "Vorname,Name,Ort"})
+response.json()
 
 # Display contacts matching a search string
 response = proffix.request("GET", "ADR/ADRESSE", params={'Suche': 'Tina'})
@@ -70,27 +71,22 @@ address_list = response.json()
 pd.DataFrame(address_list)
 
 # Delete contact created above
-response = proffix.request("DELETE", f"ADR/ADRESSE/{adress_no}")
+response = proffix.delete(f"ADR/ADRESSE/{adress_no}")
 
 
 # File handling ----------------------------------------------------------------
 
 # File upload
-response = proffix.file_upload(
-    path = resource_filename('proffix_api', 'resources/test_image.jpg'),
-    params = {'filename': "test_image.jpg"})
-file_id = re.sub("^.*/", "", response.headers['Location'])
-# The file is now stored in a temporary directory for further use. It will be
-# automatically deleted if not attached to an object within 20 minutes.
+path = resource_filename('proffix_api', 'resources/test_image.jpg')
+file_id = proffix.file_upload(path, params={'filename': "test_image.jpg"})
+# Uploaded files are stored in a temporary directory for further use. They will
+# be automatically deleted if not attached to an object within 20 minutes.
 
 # File info
-response = proffix.request('GET', f"PRO/Datei/{file_id}/Info")
-file_path = response.json()['Dateipfad']
+proffix.get(f"PRO/Datei/{file_id}/Info").json()
 
 # File download
-response = proffix.request('GET', f"PRO/Datei/{file_id}")
-path = os.path.expanduser("~/Downloads/temp_test_image.jpg")
-open(path, 'wb').write(response.content)
+proffix.file_download(file_id, "~/Downloads/temp_test_image.jpg")
 
 
 # Use file as product picture --------------------------------------------------
@@ -101,7 +97,7 @@ product = {
     "Bezeichnung1": "Ein klitzekleiner Testartikel.",
     "Steuercode": {'SteuercodeNr': 1},
     "SteuercodeEinkauf": {'SteuercodeNr': 1}}
-proffix.request("POST", "LAG/Artikel", payload=product)
+proffix.post("LAG/Artikel", json=product)
 
 # Link picture to product
 product_picture = {
@@ -111,7 +107,7 @@ product_picture = {
     "Bezeichnung": "Testbild"}
 # Below request is not authorized on Proffix' official REST API test environment
 # Raises ProffixAPIError: "Sie haben keine Berechtigung für diese Funktion!"
-proffix.request("POST", "LAG/Artikelbild", payload=product_picture)
+proffix.post("LAG/Artikelbild", json=product_picture)
 
 
 # Logout -----------------------------------------------------------------------

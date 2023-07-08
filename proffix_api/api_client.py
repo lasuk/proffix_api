@@ -3,9 +3,8 @@
 The api_client module implements the ProffixAPIClient class
 that provides connectivity to the PROFFIX REST API.
 """
-import hashlib
-import json
-import requests
+import hashlib, re, requests
+from os.path import expanduser
 
 class ProffixAPIError(IOError):
     """Error reported by the Proffix REST API."""
@@ -90,15 +89,15 @@ class ProffixAPIClient():
         pass
 
 
-    def request(self, method, endpoint, payload={}, params={}):
+    def request(self, method, endpoint, json={}, params={}, data=None,
+                content_type='application/json'):
         if self._session_id == None:
             self._session_id = self.login()
         url = f"{self.base_url}{endpoint}"
         headers = {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
+            'Content-Type': content_type,
             'PxSessionId': self._session_id}
-        response = requests.request(method, url, json=payload,
+        response = requests.request(method, url, json=json, data=data,
                                     headers=headers, params=params)
         if (response.status_code == 401):
             # If response is 'Unauthorized', the session id might have expired.
@@ -106,35 +105,56 @@ class ProffixAPIClient():
             self.logout()
             self._session_id = self.login()
             headers['PxSessionId'] = self._session_id
-            response = requests.request(method, url, json=payload,
+            response = requests.request(method, url, json=json, data=data,
                                         headers=headers, params=params)
         if not response.ok:
             err = response.json()
-            msg = f"{err.pop('Type')}: {err.pop('Message')} {json.dumps(err)}"
+            msg = f"{err.pop('Type')}: {err.pop('Message')} {str(err)}"
             raise ProffixAPIError(msg, response)
         self._session_id = response.headers['PxSessionId']
         return response
 
 
-    def file_upload(self, path, params):
-        if self._session_id == None:
-            self._session_id = self.login()
-        url = f"{self.base_url}PRO/Datei"
-        headers = {
-            'Content-Type': 'application/octet-stream',
-            'PxSessionId': self._session_id}
-        data = open(path,'rb')
-        response = requests.request("POST", url, data=data,
-                                    headers=headers, params=params)
-        if (response.status_code == 401):
-            # If response is 'Unauthorized': log out, log back in and try again
-            self.logout()
-            self._session_id = self.login()
-            response = requests.request("POST", url, data=data,
-                                        headers=headers, params=params)
-        if not response.ok:
-            err = response.json()
-            msg = f"{err.pop('Type')}: {err.pop('Message')} {json.dumps(err)}"
-            raise ProffixAPIError(msg, response)
-        self._session_id = response.headers['PxSessionId']
+    def delete(self, endpoint, json={}, params={}, data=None):
+        response = self.request(method='DELETE', endpoint=endpoint, json=json,
+                                params=params, data=data)
         return response
+
+
+    def get(self, endpoint, json={}, params={}, data=None):
+        response = self.request(method='GET', endpoint=endpoint, json=json,
+                                params=params, data=data)
+        return response
+
+
+    def patch(self, endpoint, json={}, params={}, data=None):
+        response = self.request(method='PATCH', endpoint=endpoint, json=json,
+                                params=params, data=data)
+        return response
+
+
+    def post(self, endpoint, json={}, params={}, data=None):
+        response = self.request(method='POST', endpoint=endpoint, json=json,
+                                params=params, data=data)
+        return response
+
+
+    def put(self, endpoint, json={}, params={}, data=None):
+        response = self.request(method='PUT', endpoint=endpoint, json=json,
+                                params=params, data=data)
+        return response
+
+
+    def file_upload(self, path, params={}):
+        data = open(path, 'rb')
+        response = self.request(method='POST', endpoint="PRO/Datei",
+                                data=data, params=params,
+                                content_type='application/octet-stream')
+        file_id = re.sub("^.*/", "", response.headers['Location'])
+        return file_id
+
+
+    def file_download(self, file_id, path):
+        response = self.request('GET', endpoint=f"PRO/Datei/{file_id}")
+        open(expanduser(path), 'wb').write(response.content)
+        pass

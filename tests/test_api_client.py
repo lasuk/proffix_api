@@ -30,7 +30,7 @@ def test_api_login():
         database="DEMODB",
         modules=["VOL"])
 
-    response = proffix.request("GET", "PRO/LOGIN")
+    response = proffix.get("PRO/LOGIN")
     assert response.json()['Benutzer'] == "GAST"
 
     proffix.logout()
@@ -46,21 +46,17 @@ def test_file_handling():
 
     # File upload
     test_file = resource_filename('proffix_api', 'resources/test_image.jpg')
-    response = proffix.file_upload(
-        path = test_file,
-        params = {'filename': "test_image.jpg"})
-    file_id = re.sub("^.*/", "", response.headers['Location'])
+    params = {'filename': "test_image.jpg"}
+    file_id = proffix.file_upload(test_file, params=params)
 
     # File info
-    response = proffix.request("GET", f"PRO/Datei/{file_id}/Info")
-    file_info = response.json()
-    assert re.match(r"^.*/test_image.jpg.*$", file_info['Dateipfad'])
+    response = proffix.get(f"PRO/Datei/{file_id}/Info")
+    assert re.match(r"^.*/test_image.jpg.*$", response.json()['Dateipfad'])
 
     # File download
-    response = proffix.request("GET", f"PRO/Datei/{file_id}")
-    open('test_image.jpg', 'wb').write(response.content)
+    proffix.file_download(file_id, "test_image.jpg")
     # Ensure original and downloaded files are identical
-    assert filecmp.cmp('test_image.jpg', test_file)
+    assert filecmp.cmp(test_file, "test_image.jpg")
 
     proffix.logout()
     pass
