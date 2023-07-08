@@ -114,3 +114,27 @@ class ProffixAPIClient():
             raise ProffixAPIError(msg, response)
         self._session_id = response.headers['PxSessionId']
         return response
+
+
+    def file_upload(self, path, params):
+        if self._session_id == None:
+            self._session_id = self.login()
+        url = f"{self.base_url}PRO/Datei"
+        headers = {
+            'Content-Type': 'application/octet-stream',
+            'PxSessionId': self._session_id}
+        data = open(path,'rb')
+        response = requests.request("POST", url, data=data,
+                                    headers=headers, params=params)
+        if (response.status_code == 401):
+            # If response is 'Unauthorized': log out, log back in and try again
+            self.logout()
+            self._session_id = self.login()
+            response = requests.request("POST", url, data=data,
+                                        headers=headers, params=params)
+        if not response.ok:
+            err = response.json()
+            msg = f"{err.pop('Type')}: {err.pop('Message')} {json.dumps(err)}"
+            raise ProffixAPIError(msg, response)
+        self._session_id = response.headers['PxSessionId']
+        return response

@@ -8,6 +8,7 @@ The package further provides specific methods for endpoints that can not be hand
 - `login()` and `logout()` manage the `session_id` authentication token.
 - `info()` and `database()` _class_ methods access PRO/INFO and PRO/DATABASE endpoints. These endpoints require an API key as an authentication token and do not depend on the standard login mechanism.\
 _(Note that the api_key is solely needed for these endpoints. All other endpoints can be used without the api_key)._
+- `file_upload()`.
 
 The Proffix API manages authentication through a `PxSessionId` token transmitted in the HTML header. The token is initially acquired by a html POST request to the PRO/LOGIN endpoint. The proffix_api package embeds the current session ID in the HTML header and obtains a new session ID if none is available or if the current one has expired. A new session ID is acquired through the `login()` method that forwards username, password, database name and necessary modules to the 'PRO/LOGIN' endpoint.
 
@@ -24,6 +25,7 @@ Below example connects to the API [test environment](https://www.proffix.ch/Port
 
 ```python
 import re, pandas as pd
+from pkg_resources import resource_filename
 from proffix_api import ProffixAPIClient
 
 
@@ -69,6 +71,47 @@ pd.DataFrame(address_list)
 
 # Delete contact created above
 response = proffix.request("DELETE", f"ADR/ADRESSE/{adress_no}")
+
+
+# File handling ----------------------------------------------------------------
+
+# File upload
+response = proffix.file_upload(
+    path = resource_filename('proffix_api', 'resources/test_image.jpg'),
+    params = {'filename': "test_image.jpg"})
+file_id = re.sub("^.*/", "", response.headers['Location'])
+# The file is now stored in a temporary directory for further use. It will be
+# automatically deleted if not attached to an object within 20 minutes.
+
+# File info
+response = proffix.request('GET', f"PRO/Datei/{file_id}/Info")
+file_path = response.json()['Dateipfad']
+
+# File download
+response = proffix.request('GET', f"PRO/Datei/{file_id}")
+path = os.path.expanduser("~/Downloads/temp_test_image.jpg")
+open(path, 'wb').write(response.content)
+
+
+# Use file as product picture --------------------------------------------------
+
+# Create a new product (Artikel in Lagerverwaltung)
+product = {
+    "ArtikelNr": "TESTARTIKEL",
+    "Bezeichnung1": "Ein klitzekleiner Testartikel.",
+    "Steuercode": {'SteuercodeNr': 1},
+    "SteuercodeEinkauf": {'SteuercodeNr': 1}}
+proffix.request("POST", "LAG/Artikel", payload=product)
+
+# Link picture to product
+product_picture = {
+    "DateiNr": file_id,
+    "Artikel": {"ArtikelNr": "TESTARTIKEL"},
+    "Hauptbild": True,
+    "Bezeichnung": "Testbild"}
+# Below request is not authorized on Proffix' official REST API test environment
+# Raises ProffixAPIError: "Sie haben keine Berechtigung für diese Funktion!"
+proffix.request("POST", "LAG/Artikelbild", payload=product_picture)
 
 
 # Logout -----------------------------------------------------------------------

@@ -1,4 +1,5 @@
-import re
+import re, filecmp
+from pkg_resources import resource_filename
 from proffix_api import ProffixAPIClient
 
 # Credetials for official Proffix API test environment are
@@ -31,6 +32,35 @@ def test_api_login():
 
     response = proffix.request("GET", "PRO/LOGIN")
     assert response.json()['Benutzer'] == "GAST"
+
+    proffix.logout()
+    pass
+
+def test_file_handling():
+    proffix = ProffixAPIClient(
+        base_url="https://remote.proffix.net:11011/pxapi/v4",
+        username="Gast",
+        password="gast123",
+        database="DEMODB",
+        modules=["VOL"])
+
+    # File upload
+    test_file = resource_filename('proffix_api', 'resources/test_image.jpg')
+    response = proffix.file_upload(
+        path = test_file,
+        params = {'filename': "test_image.jpg"})
+    file_id = re.sub("^.*/", "", response.headers['Location'])
+
+    # File info
+    response = proffix.request("GET", f"PRO/Datei/{file_id}/Info")
+    file_info = response.json()
+    assert re.match(r"^.*/test_image.jpg.*$", file_info['Dateipfad'])
+
+    # File download
+    response = proffix.request("GET", f"PRO/Datei/{file_id}")
+    open('test_image.jpg', 'wb').write(response.content)
+    # Ensure original and downloaded files are identical
+    assert filecmp.cmp('test_image.jpg', test_file)
 
     proffix.logout()
     pass
