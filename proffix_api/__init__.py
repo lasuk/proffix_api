@@ -8,5 +8,4 @@ universal `get()`, `post()`, etc. methods and does not implement individual
 endpoints.
 """
 
-from proffix_api.api_client import ProffixAPIClient
-from proffix_api.api_client import ProffixAPIError
+from .api_client import ProffixAPIClient, ProffixAPIError

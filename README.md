@@ -66,7 +66,7 @@ response = proffix.get(f"ADR/ADRESSE/{adress_no}",
 response.json()
 
 # Display contacts matching a search string
-response = proffix.request("GET", "ADR/ADRESSE", params={'Suche': 'Tina'})
+response = proffix.get("ADR/ADRESSE", params={'Suche': 'Tina'})
 address_list = response.json()
 pd.DataFrame(address_list)
 
