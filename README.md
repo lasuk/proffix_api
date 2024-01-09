@@ -135,19 +135,16 @@ the public Proffix test environment.
 
 ## Package Development
 
-- On Mac OS X, follow this
-[post on stackoverflow](https://stackoverflow.com/questions/49470367/install-virtualenv-and-virtualenvwrapper-on-macos)
-to install python and virtualenv with homebrew. Test with `which python` that
-python points to the brew installation at `/usr/local/bin/python`.
+We recommend to work within a virtual environment for package development.
+You can create and activate an environment with:
 
-- You probably want to work in a virtual environment for package development:
+```bash
+python3 -m venv ~/.virtualenvs/env_name
+source ~/.virtualenvs/env_name/bin/activate
+```
 
-    ```bash
-    mkvirtualenv env_name
-    workon env_name
-    ```
-
-- To test the modified version of the package during development, clone the
-package repository and invoke `python setup.py develop` in the repository root
-folder. This merely adds a link to the package directory in the python search
-path. When (re-)loading the package, the latest code version will be sourced.
+To locally modify and test the package, clone the repository and
+execute `python setup.py develop` in the repository root folder. This approach
+adds a symbolic link to your development directory in Python's search path,
+ensuring immediate access to the latest code version upon (re-)loading the
+package.
